@@ -66,6 +66,7 @@
       - patch
       - auditd
       - rule_4.1.1.3
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.2 | PATCH | Ensure auditd service is enabled"
   service:
@@ -83,11 +84,14 @@
       - rule_4.1.2
 
 - name: "SCORED | 4.1.3 | PATCH | Ensure auditing for processes that start prior to auditd is enabled"
-  replace:
-      dest: /etc/default/grub
-      regexp: '(^GRUB_CMDLINE_LINUX\s*\=\s*)(?:")(.+)(?<!audit=1)(?:")'
-      replace: '\1"\2 audit=1"'
-      follow: true
+#   replace:
+#       dest: /etc/default/grub
+#       regexp: '(^GRUB_CMDLINE_LINUX\s*\=\s*)(?:")(.+)(?<!audit=1)(?:")'
+#       replace: '\1"\2 audit=1"'
+#       follow: true
+  lineinfile:
+        dest: /etc/default/grub
+        line: 'GRUB_CMDLINE_LINUX="audit=1"'
   ignore_errors: true
   notify:
       - generate new grub config
@@ -99,25 +103,39 @@
       - patch
       - auditd
       - rule_4.1.3
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.4 | PATCH | Ensure events that modify date and time information are collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_4.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_4.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_4.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_4.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-a always,exit -F arch=b64 -S adjtimex -S settimeofday -k time-change'
+      - '-a always,exit -F arch=b32 -S adjtimex -S settimeofday -S stime -k time-change'
+      - '-a always,exit -F arch=b64 -S clock_settime -k time-change'
+      - '-a always,exit -F arch=b32 -S clock_settime -k time-change'
+      - '-w /etc/localtime -p wa -k time-change'
+  notify: restart auditd
   when:
       - ubuntu1604cis_rule_4_1_4
-  notify:
-      - load audit rules
-      - restart auditd
+#   notify:
+#       - load audit rules
+#       - restart auditd
   tags:
       - level2
       - scored
       - patch
       - auditd
       - rule_4.1.4
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.5 | PATCH | Ensure events that modify user/group information are collected"
   template:
@@ -177,16 +195,25 @@
       - rule_4.1.7
 
 - name: "SCORED | 4.1.8 | PATCH | Ensure login and logout events are collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_8.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_8.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_8.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_8.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-w /var/log/faillog -p wa -k logins'
+      - '-w /var/log/lastlog -p wa -k logins'
+      - '-w /var/log/tallylog -p wa -k logins'
   when:
       - ubuntu1604cis_rule_4_1_8
   notify:
-      - load audit rules
+    #   - load audit rules
       - restart auditd
   tags:
       - level2
@@ -194,18 +221,28 @@
       - patch
       - auditd
       - rule_4.1.8
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.9 | PATCH | Ensure session initiation information is collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_9.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_9.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_9.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_9.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-w /var/run/utmp -p wa -k session'
+      - '-w /var/log/wtmp -p wa -k session'
+      - '-w /var/log/btmp -p wa -k session'
   when:
       - ubuntu1604cis_rule_4_1_9
   notify:
-      - load audit rules
+    #   - load audit rules
       - restart auditd
   tags:
       - level2
@@ -213,6 +250,7 @@
       - patch
       - auditd
       - rule_4.1.9
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.10 | PATCH | Ensure discretionary access control permission modification events are collected"
   template:
@@ -234,16 +272,26 @@
       - rule_4.1.10
 
 - name: "SCORED | 4.1.11 | PATCH | Ensure unsuccessful unauthorized file access attempts are collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_11.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_11.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_11.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_11.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access'
+      - '-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EACCES -F auid>=1000 -F auid!=4294967295 -k access'
+      - '-a always,exit -F arch=b64 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access'
+      - '-a always,exit -F arch=b32 -S creat -S open -S openat -S truncate -S ftruncate -F exit=-EPERM -F auid>=1000 -F auid!=4294967295 -k access'  
   when:
       - ubuntu1604cis_rule_4_1_11
   notify:
-      - load audit rules
+    #   - load audit rules
       - restart auditd
   tags:
       - level2
@@ -251,26 +299,40 @@
       - patch
       - auditd
       - rule_4.1.11
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.12 | PATCH | Ensure use of privileged commands is collected"
   block:
 
-      - name: "SCORED | 4.1.12 | PATCH | Get list of setuid/setguid binaries"
-        shell: for i in  $(df | grep '^/dev' | awk '{ print $NF }'); do find $i -xdev -type f -perm -4000 -o -type f -perm -2000 2>/dev/null; done
-        register: priv_procs
-        changed_when: false
-        check_mode: false
+    #   - name: "SCORED | 4.1.12 | PATCH | Get list of setuid/setguid binaries"
+    #     shell: for i in  $(df | grep '^/dev' | awk '{ print $NF }'); do find $i -xdev -type f -perm -4000 -o -type f -perm -2000 2>/dev/null; done
+    #     register: priv_procs
+    #     changed_when: false
+    #     check_mode: false
 
-      - name: "SCORED | 4.1.12 | PATCH | Ensure use of privileged commands is collected"
-        template:
-            src: audit/ubuntu1604cis_rule_4_1_12.rules.j2
-            dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_12.rules
-            owner: root
-            group: root
-            mode: 0600
-        notify:
-            - load audit rules
-            - restart auditd
+    #   - name: "SCORED | 4.1.12 | PATCH | Ensure use of privileged commands is collected"
+    #     template:
+    #         src: audit/ubuntu1604cis_rule_4_1_12.rules.j2
+    #         dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_12.rules
+    #         owner: root
+    #         group: root
+    #         mode: 0600
+    #     notify:
+    #         - load audit rules
+    #         - restart auditd
+        - name: "SCORED | 4.1.12 | PATCH | Get list of setuid/setguid binaries"
+          shell: "find / -path /sys -prune -o -path /proc -prune -o -path /run -prune -o \\( -perm -4000 -o -perm -2000 \\) -type f|egrep -v '/sys|/proc|/run'"
+          register: setuid_setgid_commands
+
+        - name: "SCORED | 4.1.12 | PATCH | Ensure use of privileged commands is collected"
+          lineinfile:
+            dest: /etc/audit/audit.rules
+            line: '-a always,exit -F path={{item}} -F perm=x -F auid>=1000 -F auid!=4294967295 -k privileged'
+            state: present
+            create: yes
+          with_items: "{{ setuid_setgid_commands.stdout_lines }}"
+          notify: restart auditd
+          
   when:
       - ubuntu1604cis_rule_4_1_12
   tags:
@@ -279,6 +341,7 @@
       - patch
       - auditd
       - rule_4.1.12
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.13 | PATCH | Ensure successful file system mounts are collected"
   template:
@@ -300,16 +363,24 @@
       - rule_4.1.13
 
 - name: "SCORED | 4.1.14 | PATCH | Ensure file deletion events by users are collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_14.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_14.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_14.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_14.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-a always,exit -F arch=b64 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete'
+      - '-a always,exit -F arch=b32 -S unlink -S unlinkat -S rename -S renameat -F auid>=1000 -F auid!=4294967295 -k delete'
   when:
       - ubuntu1604cis_rule_4_1_14
   notify:
-      - load audit rules
+    #   - load audit rules
       - restart auditd
   tags:
       - level2
@@ -317,6 +388,7 @@
       - patch
       - auditd
       - rule_4.1.14
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.15 | PATCH | Ensure changes to system administration scope (sudoers) is collected"
   template:
@@ -357,16 +429,26 @@
       - rule_4.1.16
 
 - name: "SCORED | 4.1.17 | PATCH | Ensure kernel module loading and unloading is collected"
-  template:
-      src: audit/ubuntu1604cis_rule_4_1_17.rules.j2
-      dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_17.rules
-      owner: root
-      group: root
-      mode: 0600
+#   template:
+#       src: audit/ubuntu1604cis_rule_4_1_17.rules.j2
+#       dest: /etc/audit/rules.d/ubuntu1604cis_rule_4_1_17.rules
+#       owner: root
+#       group: root
+#       mode: 0600
+  lineinfile:
+      dest: /etc/audit/audit.rules
+      line: '{{ item }}'
+      state: present
+      create: yes
+  with_items:
+      - '-w /sbin/insmod -p x -k modules'
+      - '-w /sbin/rmmod -p x -k modules'
+      - '-w /sbin/modprobe -p x -k modules'
+      - '-a always,exit -F arch=b64 -S init_module -S delete_module -k modules'
   when:
       - ubuntu1604cis_rule_4_1_17
   notify:
-      - load audit rules
+    #   - load audit rules
       - restart auditd
   tags:
       - level2
@@ -375,6 +457,7 @@
       - auditd
       - rule_4.1.17
       - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 4.1.18 | PATCH | Ensure the audit configuration is immutable"
   template:
@@ -554,9 +637,7 @@
       - notimplemented
 
 - name: "SCORED | 4.2.4 | PATCH | Ensure permissions on all logfiles are configured"
-  command: find /var/log -type f -exec chmod g-wx,o-rwx {} +
-  changed_when: false
-  failed_when: false
+  shell:  chmod -R g-wx,o-rwx /var/log/*
   when:
       - ubuntu1604cis_rule_4_2_4
   tags:
@@ -565,6 +646,7 @@
       - patch
       - syslog
       - rule_4.2.4
+      - edited_by_kchaitanya863
 
 - name: "NOTSCORED | 4.3 | PATCH | Ensure logrotate is configured"
   block:

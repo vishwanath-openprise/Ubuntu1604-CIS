@@ -228,17 +228,23 @@
       - rule_3.3.2
 
 - name: "NOTSCORED | 3.3.3 | PATCH | Ensure IPv6 is disabled"
-  lineinfile:
-      dest: /etc/modprobe.d/CIS.conf
-      regexp: "^(#)?options ipv6 disable="
-      line: "options ipv6 disable=1"
-      create: true
+  sysctl:
+    name: "{{ item }}"
+    value: 1
+    state: present
+    sysctl_set: yes
+    reload: yes 
+  with_items:
+    - net.ipv6.conf.all.disable_ipv6
+    - net.ipv6.conf.default.disable_ipv6
+    - net.ipv6.conf.lo.disable_ipv6
   when: ubuntu1604cis_ipv6_required == false
   tags:
       - level1
       - notscored
       - patch
       - rule_3.3.3
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 3.4.1 | PATCH | Ensure TCP Wrappers is installed"
   apt:
@@ -395,32 +401,50 @@
       - patch
       - rule_3.6.1
 
-- name: "SCORED | 3.6.2 | PATCH | Ensure default deny firewall policy"
+- name: 3.6.2 Ensure default deny firewall policy (PRELIM)
+  shell: iptables -L|egrep 'INPUT|FORWARD|OUTPUT'|grep "policy DROP"
+  register: drop_policy
+  failed_when: False
+  changed_when: False
+  tags:
+      - level1
+      - scored
+      - patch
+      - rule_3.6.2
+      - implememted_by_kchaitanya863
+
+- name: 3.6.2 Ensure default deny firewall policy (Scored)
   lineinfile:
-      dest: /etc/firewalld/firewalld.conf
-      regexp: "^DefaultZone"
-      line: "DefaultZone=drop"
-  when: ubuntu1604cis_firewall == "firewalld" and ubuntu1604cis_setup_firewall
+      name: "{{ ubuntu1604cis_iptables_rules_file }}"
+      line: "{{ item }}"
+      insertbefore: '^COMMIT'
+      create: yes
+  with_items:
+      - '-P INPUT DROP'
+      - '-P FORWARD DROP'
+      - '-P OUTPUT DROP'
+  when:
+      - ubuntu1604cis_enable_iptables
+      - ubuntu1604cis_firewall_default_deny_policy
+      - drop_policy.rc == 1
+  notify: restart iptables
   tags:
       - level1
       - scored
       - patch
       - rule_3.6.2
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 3.6.2 | PATCH | Ensure default deny firewall policy"
-  firewalld:
-      state: enabled
-      zone: drop
-      permanent: true
-  when: ubuntu1604cis_firewall == "firewalld" and ubuntu1604cis_setup_firewall
-  tags:
-      - level1
-      - scored
-      - patch
-      - rule_3.6.2
-
-- name: "SCORED | 3.6.2 | PATCH | Ensure default deny firewall policy"
-  command: /bin/true
+#   command: /bin/true
+  iptables:
+    chain: "{{item}}"
+    policy: DROP
+  become: yes
+  with_items:
+    - INPUT
+    - FORWARD
+    - OUTPUT
   changed_when: false
   when: ubuntu1604cis_firewall == "iptables" and ubuntu1604cis_setup_firewall
   tags:
@@ -428,18 +452,28 @@
       - scored
       - patch
       - rule_3.6.2
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 3.6.3 | PATCH | Ensure loopback traffic is configured"
-  command: /bin/true
-  changed_when: false
-  when: ubuntu1604cis_firewall == "iptables" and ubuntu1604cis_setup_firewall
+  lineinfile:
+      name: "{{ ubuntu1604cis_iptables_rules_file }}"
+      line: "{{ item }}"
+      insertbefore: '^COMMIT'
+      create: yes
+  with_items:
+      - '-A INPUT -i lo -j ACCEPT'
+      - '-A OUTPUT -o lo -j ACCEPT'
+      - '-A INPUT -s 127.0.0.0/8 -j DROP'
+  when: 
+    - ubuntu1604cis_firewall == "iptables" and ubuntu1604cis_setup_firewall
+    - ubuntu1604cis_enable_iptables
+    - ubuntu1604cis_loopback_traffic_policy
   tags:
       - level1
       - scored
       - patch
       - rule_3.6.3
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "NOTSCORED | 3.6.4 | PATCH | Ensure outbound and established connections are configured"
   command: /bin/true

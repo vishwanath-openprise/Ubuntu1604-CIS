@@ -359,50 +359,16 @@
       - rule_5.2.13
 
 - name: "SCORED | 5.2.14 | PATCH | Ensure SSH access is limited"
-  block:
-      - name: "SCORED | 5.2.14 | PATCH | Ensure SSH access is limited - allowusers"
-        lineinfile:
-            state: present
-            dest: /etc/ssh/sshd_config
-            regexp: '^AllowUsers'
-            line: "AllowUsers {{ ubuntu1604cis_sshd['allowusers'] }}"
-        notify:
-            - restart sshd
-        when:
-            - "ubuntu1604cis_sshd['allowusers']|default('') != ''"
-
-      - name: "SCORED | 5.2.14 | PATCH | Ensure SSH access is limited - allowgroups"
-        lineinfile:
-            state: present
-            dest: /etc/ssh/sshd_config
-            regexp: '^AllowGroups'
-            line: "AllowGroups {{ ubuntu1604cis_sshd['allowgroups'] }}"
-        notify:
-            - restart sshd
-        when:
-            - "ubuntu1604cis_sshd['allowgroups']|default('') != ''"
-
-      - name: "SCORED | 5.2.14 | PATCH | Ensure SSH access is limited - denyusers"
-        lineinfile:
-            state: present
-            dest: /etc/ssh/sshd_config
-            regexp: '^DenyUsers'
-            line: "DenyUsers {{ ubuntu1604cis_sshd['denyusers'] }}"
-        notify:
-            - restart sshd
-        when:
-            - "ubuntu1604cis_sshd['denyusers']|default('') != ''"
-
-      - name: "SCORED | 5.2.14 | PATCH | Ensure SSH access is limited - denygroups"
-        lineinfile:
-            state: present
-            dest: /etc/ssh/sshd_config
-            regexp: '^DenyGroups'
-            line: "DenyGroups {{ ubuntu1604cis_sshd['denygroups'] }}"
-        notify:
-            - restart sshd
-        when:
-            - "ubuntu1604cis_sshd['denygroups']|default('') != ''"
+  lineinfile:
+      dest: /etc/ssh/sshd_config
+      regexp: '^{{item.name}}'
+      line: '{{item.name}} {{item.value}}'
+  with_items:
+      - { name: 'AllowUsers' , value: '{{ ubuntu1604cis_sshd_allow_users }}' }
+      - { name: 'AllowGroups' , value: '{{ ubuntu1604cis_sshd_allow_groups }}' }
+      - { name: 'DenyUsers' , value: '{{ ubuntu1604cis_sshd_deny_users }}' }
+      - { name: 'DenyGroups' , value: '{{ ubuntu1604cis_sshd_deny_groups }}' }
+  notify: restart sshd
   when:
       - ubuntu1604cis_rule_5_2_14
   tags:
@@ -411,6 +377,7 @@
       - patch
       - sshd
       - rule_5.2.14
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 5.2.15 | PATCH | Ensure SSH warning banner is configured"
   lineinfile:
@@ -456,8 +423,13 @@
       - rule_5.3.1
 
 - name: "SCORED | 5.3.2 | PATCH | Ensure lockout for failed password attempts is configured"
-  command: /bin/true
-  changed_when: false
+#   command: auth required pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900   
+  lineinfile:
+    name: /etc/pam.d/common-auth
+    regexp: '^(((?!pam_tally2).)*$\nauth\s+\[success\=1\sdefault\=ignore\]\s+pam_unix.so\s)'
+    insertbefore: '^(auth\s+\[success\=1\sdefault\=ignore\]\s+pam_unix.so\s.*)'
+    line: 'auth    required      pam_tally2.so onerr=fail audit silent deny=5 unlock_time=900'
+    state: present  
   when:
       - ubuntu1604cis_rule_5_3_2
   tags:
@@ -465,11 +437,15 @@
       - scored
       - patch
       - rule_5.3.2
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 5.3.3 | PATCH | Ensure password reuse is limited"
-  command: /bin/true
-  changed_when: false
+  lineinfile:
+      name: /etc/pam.d/common-password
+      regexp: '^(password\s+\[success\=1\sdefault\=ignore\]\s+pam_unix.so\s((?!remember\=5).)*$)'
+      backrefs: yes
+      line: '\1 remember=5'
+      state: present
   when:
       - ubuntu1604cis_rule_5_3_3
   tags:
@@ -477,7 +453,7 @@
       - scored
       - patch
       - rule_5.3.3
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 5.3.4 | PATCH | Ensure password hashing algorithm is SHA-512"
   command: authconfig --passalgo=sha512 --update
@@ -534,8 +510,26 @@
       - rule_5.4.1.3
 
 - name: "SCORED | 5.4.1.4 | PATCH | Ensure inactive password lock is 30 days or less"
-  command: /bin/true
-  changed_when: false
+#   command: /bin/true
+  block:
+    - name: 5.4.1.4 - Obtain a list of user accounts
+      shell: "egrep ^[^:]+:[^\\!*] /etc/shadow | cut -d: -f1"
+      register: egrep_5_4_1_4
+      check_mode: no
+      changed_when: False
+    
+    - name: 5.4.1.4 - Ensure inactive password lock is 30 days or less
+      lineinfile:
+        dest: "/etc/default/useradd"
+        regexp: "^INACTIVE\\s+"
+        line: "INACTIVE={{ cis_pass_inactive_lock }}"
+      changed_when: false
+    
+    - name: 5.4.1.4 - Set inactive password lock for all user accounts
+      command: "chage --inactive {{ cis_pass_inactive_lock }} {{ item }}"
+      with_items: "{{ egrep_5_4_1_4.stdout_lines }}"
+      changed_when: false
+  
   when:
       - ubuntu1604cis_rule_5_4_1_4
   tags:
@@ -543,18 +537,27 @@
       - scored
       - patch
       - rule_5.4.1.4
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 5.4.2 | PATCH | Ensure system accounts are non-login"
-  command: /bin/true
-  changed_when: false
+  shell: |
+        for user in `awk -F: '($3 < 1000) {print $1 }' /etc/passwd`; do
+        if [ $user != "root" ]; then
+            usermod -L $user
+            if [ $user != "sync" ] && [ $user != "shutdown" ] && [ $user != "halt" ]; then
+            usermod -s /usr/sbin/nologin $user
+            fi
+        fi
+        done
+  check_mode: no
+  ignore_errors: true 
   when:
       - ubuntu1604cis_rule_5_4_2
   tags:
       - level1
       - patch
       - rule_5.4.2
-      - notimplemented
+      - edited_by_kchaitanya863
       - scored
 
 - name: "SCORED | 5.4.3 | PATCH | Ensure default group for the root account is GID 0"
@@ -610,11 +613,15 @@
       - notimplemented
 
 - name: "SCORED | 5.6 | PATCH | Ensure access to the su command is restricted"
+#   lineinfile:
+#       state: present
+#       dest: /etc/pam.d/su
+#       regexp: '^(#)?auth\s+required\s+pam_wheel\.so'
+#       line: "auth           required        pam_wheel.so use_uid"
   lineinfile:
-      state: present
       dest: /etc/pam.d/su
-      regexp: '^(#)?auth\s+required\s+pam_wheel\.so'
-      line: "auth           required        pam_wheel.so use_uid"
+      line: 'auth            required        pam_wheel.so use_uid'
+      state: present
   when:
       - ubuntu1604cis_rule_5_6
   tags:
@@ -622,6 +629,7 @@
       - patch
       - rule_5.6
       - scored
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 5.6 | PATCH | Ensure access to the su command is restricted - wheel group contains root"
   user:

@@ -79,3 +79,16 @@
       - ubuntu1604cis_skip_for_travis == false
   tags:
       - skip_ansible_lint
+
+# Added by kchaitanya863
+- name: restart iptables
+  shell: iptables-restore < "{{ ubuntu1604cis_iptables_rules_file }}" 
+  changed_when: False
+  ignore_errors: True
+
+- name: restart postfix
+  service:
+      name: postfix
+      state: restarted
+  changed_when: False
+  ignore_errors: True

@@ -30,7 +30,7 @@
       dest: /etc/shadow
       owner: root
       group: root
-      mode: 0000
+      mode: 0640
   when:
       - ubuntu1604cis_rule_6_1_3
   tags:
@@ -38,6 +38,7 @@
       - scored
       - patch
       - rule_6.1.3
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.1.4 | PATCH | Ensure permissions on /etc/group are configured"
   file:
@@ -55,10 +56,10 @@
 
 - name: "SCORED | 6.1.5 | PATCH | Ensure permissions on /etc/gshadow are configured"
   file:
-      dest: /etc/gshadow
-      owner: root
+      path: /etc/gshadow
+      owner: shadow
       group: root
-      mode: 0000
+      mode: o-rwx,g-rw
   when:
       - ubuntu1604cis_rule_6_1_5
   tags:
@@ -66,6 +67,7 @@
       - scored
       - patch
       - rule_6.1.5
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.1.6 | PATCH | Ensure permissions on /etc/passwd- are configured"
   file:
@@ -124,8 +126,44 @@
       - rule_6.1.9
 
 - name: "SCORED | 6.1.10 | PATCH | Ensure no world writable files exist"
-  command: /bin/true
-  changed_when: false
+  # command: /bin/true
+  block:
+    - name: 6.1.10 - Audit if any world writable files exist
+      shell: df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type f -perm -0002
+      register: audit_6_1_10
+      changed_when: false
+    
+    - name: 6.1.10 - Remove others write permissions on world open files
+      shell: "chmod o-w {{item}}"
+      with_items: "{{audit_6_1_10.stdout_lines}}"
+      when:
+        - audit_6_1_10.stdout_lines is defined and audit_6_1_10.stdout_lines|length > 0
+      changed_when: False
+
+      #updating the file count
+    - name: 6.1.10 - Audit if any world writable files exist
+      shell: df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -type f -perm -0002
+      register: audit_6_1_10
+      changed_when: false
+      when:
+        - audit_6_1_10.stdout_lines is defined and audit_6_1_10.stdout_lines|length > 0
+
+    - name: 6.1.10 - Ensure no world writable files exist
+      fail:
+        msg: "{{ audit_6_1_10.stdout_lines }}"
+      when:
+        - audit_6_1_10.stdout_lines is defined and audit_6_1_10.stdout_lines|length > 0
+        - fail_on_manual_remediation_actions
+      changed_when: false
+    
+    - name: 6.1.10 - Ensure no world writable files exist
+      debug:
+        msg: "*** ACTION REQUIRED *** {{ audit_6_1_10.stdout }}"
+      when:
+        - audit_6_1_10.stdout_lines is defined and audit_6_1_10.stdout_lines|length > 0
+        - not fail_on_manual_remediation_actions
+      changed_when: false
+  
   when:
       - ubuntu1604cis_rule_6_1_10
   tags:
@@ -133,11 +171,32 @@
       - scored
       - patch
       - rule_6.1.10
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.1.11 | PATCH | Ensure no unowned files or directories exist"
-  command: /bin/true
-  changed_when: false
+  # command: /bin/true
+  block:
+    - name: 6.1.11 - Audit if any unowned files or directories exist
+      shell: df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nouser
+      register: audit_6_1_11
+      changed_when: false
+    
+    - name: 6.1.11 - Ensure no unowned files or directories exist
+      fail:
+        msg: "{{ audit_6_1_11.stdout_lines }}"
+      when:
+        - audit_6_1_11.stdout_lines is defined and audit_6_1_11.stdout_lines|length > 0
+        - fail_on_manual_remediation_actions
+      changed_when: false
+    
+    - name: 6.1.11 - Ensure no unowned files or directories exist
+      debug:
+        msg: "*** ACTION REQUIRED *** {{ audit_6_1_11.stdout }}"
+      when:
+        - audit_6_1_11.stdout_lines is defined and audit_6_1_11.stdout_lines|length > 0
+        - not fail_on_manual_remediation_actions
+      changed_when: false
+  
   when:
       - ubuntu1604cis_rule_6_1_11
   tags:
@@ -145,11 +204,31 @@
       - scored
       - patch
       - rule_6.1.11
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.1.12 | PATCH | Ensure no ungrouped files or directories exist"
-  command: /bin/true
-  changed_when: false
+  # command: /bin/true
+  block:
+    - name: 6.1.12 - Audit if any ungrouped files or directories exist
+      shell: df --local -P | awk {'if (NR!=1) print $6'} | xargs -I '{}' find '{}' -xdev -nogroup
+      changed_when: false
+      register: audit_6_1_12
+    
+    - name: 6.1.12 - Ensure no ungrouped files or directories exist
+      fail:
+        msg: "{{ audit_6_1_12.stdout_lines }}"
+      when:
+        - audit_6_1_12.stdout_lines is defined and audit_6_1_12.stdout_lines|length > 0
+        - fail_on_manual_remediation_actions
+      changed_when: false
+    
+    - name: 6.1.12 - Ensure no ungrouped files or directories exist
+      debug:
+        msg: "*** ACTION REQUIRED *** {{ audit_6_1_12.stdout }}"
+      when:
+        - audit_6_1_12.stdout_lines is defined and audit_6_1_12.stdout_lines|length > 0
+        - not fail_on_manual_remediation_actions
+      changed_when: false
   when:
       - ubuntu1604cis_rule_6_1_12
   tags:
@@ -157,7 +236,7 @@
       - scored
       - patch
       - rule_6.1.12
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "NOTSCORED | 6.1.13 | PATCH | Audit SUID executables"
   command: /bin/true
@@ -298,8 +377,23 @@
       - rule_6.2.6
 
 - name: "SCORED | 6.2.7 | PATCH | Ensure all users' home directories exist"
-  command: /bin/true
-  changed_when: false
+  block:
+    - name: 6.2.7 Ensure all users' home directories exist (Scored)
+      shell: |
+        #!/bin/bash
+        cat /etc/passwd | awk -F: '{ print $1 " " $3 " " $6 }' | while read user uid dir; do
+        if [ $uid -ge 1000 -a ! -d "$dir" -a $user != "nfsnobody" ]; then
+        echo "The home directory ($dir) of user $user does not exist."
+        fi
+        done
+      args:
+        executable: /bin/bash
+      register: home_directories_exist
+      
+    - name: 6.2.7 Ensure all users' home directories exist (Scored)
+      debug:
+        var: home_directories_exist.stdout_lines
+
   when:
       - ubuntu1604cis_rule_6_2_7
   tags:
@@ -307,23 +401,72 @@
       - scored
       - patch
       - rule_6.2.7
-      - notimplemented
+      - edited_by_kchaitanya863
 
-- name: "SCORED | 6.2.8 | PATCH | Ensure users' home directories permissions are 750 or more restrictive"
-  command: /bin/true
-  changed_when: false
-  when:
-      - ubuntu1604cis_rule_6_2_8
-  tags:
-      - level1
-      - scored
-      - patch
-      - rule_6.2.8
-      - notimplemented
+# - name: "SCORED | 6.2.8 | PATCH | Ensure users' home directories permissions are 750 or more restrictive"
+#   # command: /bin/true
+#   block:
+#     - name: 6.2.8 - Audit users' home directories permissions
+#       script: "{{ role_path }}/files/audit_6.2.8.sh"
+#       check_mode: no
+#       changed_when: False
+#       register: audit_6_2_8
+#       # changed_when: false
+    
+#     - name: 6.2.8 - FIX Ensure users' home directories permissions are 750 or more restrictive
+#       shell: "cat /etc/passwd | egrep -v '(root|halt|sync|shutdown)' | awk -F: '($7 != \"/sbin/nologin\") { print $6 }' | xargs chmod 750"
+#       changed_when: false
+#       when:
+#         - audit_6_2_8.stdout_lines is defined and audit_6_2_8.stdout_lines|length > 0
+#         - fail_on_manual_remediation_actions
+
+#     - name: 6.2.8 - Re-Audit users' home directories permissions
+#       script: "{{ role_path }}/files/audit_6.2.8.sh"
+#       check_mode: no
+#       changed_when: False
+#       register: audit_6_2_8
+#       when:
+#         - audit_6_2_8.stdout_lines is defined and audit_6_2_8.stdout_lines|length > 0
+#         - fail_on_manual_remediation_actions
+
+#     - name: 6.2.8 - Ensure users' home directories permissions are 750 or more restrictive
+#       fail:
+#         msg: "{{ audit_6_2_8.stdout_lines }}"
+#       changed_when: false
+#       when:
+#         - audit_6_2_8.stdout_lines is defined and audit_6_2_8.stdout_lines|length > 0
+#         - fail_on_manual_remediation_actions
+    
+#     - name: 6.2.8 - Ensure users' home directories permissions are 750 or more restrictive
+#       debug:
+#         msg: "*** ACTION REQUIRED *** {{ audit_6_2_8.stdout }}"
+#       changed_when: false
+#       when:
+#         - audit_6_2_8.stdout_lines is defined and audit_6_2_8.stdout_lines|length > 0
+#         - not fail_on_manual_remediation_actions
+
+  
+#   when:
+#       - ubuntu1604cis_rule_6_2_8
+#   tags:
+#       - level1
+#       - scored
+#       - patch
+#       - rule_6.2.8
+#       - edited_by_kchaitanya863
 
 - name: "SCORED | 6.2.9 | PATCH | Ensure users own their home directories"
-  command: /bin/true
-  changed_when: false
+  # command: /bin/true
+  shell: |
+      #!/bin/bash
+      cat /etc/passwd | awk -F: '{ print $1 " " $3 " " $6 }' | while read user uid dir; do
+      if [ $uid -ge 1000 -a -d "$dir" -a $user != "nfsnobody" ]; then
+      owner=$(stat -L -c "%U" "$dir")
+      if [ "$owner" != "$user" ]; then
+      echo "The home directory ($dir) of user $user is owned by $owner."
+      fi
+      fi
+      done
   when:
       - ubuntu1604cis_rule_6_2_9
   tags:
@@ -331,11 +474,24 @@
       - scored
       - patch
       - rule_6.2.9
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.2.10 | PATCH | Ensure users' dot files are not group or world writable"
-  command: /bin/true
-  changed_when: false
+  shell: |
+      #!/bin/bash
+      for dir in `cat /etc/passwd | egrep -v '(root|sync|halt|shutdown)' | awk -F: '($7 != "/usr/sbin/nologin") { print $6 }'`; do
+        for file in $dir/.[A-Za-z0-9]*; do
+          if [ ! -h "$file" -a -f "$file" ]; then
+            fileperm=`ls -ld $file | cut -f1 -d" "`
+            if [ `echo $fileperm | cut -c6 ` != "-" ]; then
+              echo "Group Write permission set on file $file"
+            fi
+            if [ `echo $fileperm | cut -c9 ` != "-" ]; then
+              echo "Other Write permission set on file $file"
+            fi
+          fi
+        done
+      done
   when:
       - ubuntu1604cis_rule_6_2_10
   tags:
@@ -343,7 +499,7 @@
       - scored
       - patch
       - rule_6.2.10
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.2.11 | PATCH | Ensure no users have .forward files"
   file:
@@ -409,8 +565,19 @@
       - notimplemented
 
 - name: "SCORED | 6.2.17 | PATCH | Ensure no duplicate GIDs exist"
-  command: /bin/true
-  changed_when: false
+  # command: /bin/true
+  shell: |
+        #!/bin/bash
+        cat /etc/group | cut -f3 -d":" | sort -n | uniq -c | while read x ; do
+          [ -z "${x}" ] && break
+          set - $x
+          if [ $1 -gt 1 ]; then
+            groups=`awk -F: '($3 == n) { print $1 }' n=$2 /etc/group | xargs`
+            echo "${groups}\n"
+          fi
+        done
+  register: audit_6_2_17
+  changed_when: audit_6_2_17.stdout != ""
   when:
       - ubuntu1604cis_rule_6_2_17
   tags:
@@ -418,7 +585,7 @@
       - scored
       - patch
       - rule_6.2.17
-      - notimplemented
+      - edited_by_kchaitanya863
 
 - name: "SCORED | 6.2.18 | PATCH | Ensure no duplicate user names exist"
   command: /bin/true

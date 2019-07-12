@@ -527,6 +527,7 @@
       dest: /etc/postfix/main.cf
       regexp: "^(#)?inet_interfaces"
       line: "inet_interfaces = localhost"
+  notify: restart postfix
   when:
       - ubuntu1604cis_is_mail_server == false
       - postfix_installed.rc == 0
